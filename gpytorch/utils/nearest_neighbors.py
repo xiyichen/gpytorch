@@ -168,7 +168,7 @@ class NNUtil(Module):
         x_np = x.view(-1, N, self.dim).data.float().cpu().numpy()
 
         if self.nnlib == "faiss":
-            from faiss import write_index, read_index, index_gpu_to_cpu
+            from faiss import write_index, read_index
             from faiss import IndexFlatL2
             import os
 
@@ -190,6 +190,7 @@ class NNUtil(Module):
                                 torch.from_numpy(index.search(row, self.k)[1][..., 0, :]).long().to(x.device)
                             )
                             index.add(row)
+                from faiss import index_gpu_to_cpu
                 write_index(index_gpu_to_cpu(index), './data/faiss_nn.index')
             else:
                 index = read_index('./data/faiss_nn.index')

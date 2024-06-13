@@ -168,25 +168,31 @@ class NNUtil(Module):
         x_np = x.view(-1, N, self.dim).data.float().cpu().numpy()
 
         if self.nnlib == "faiss":
+            from faiss import write_index, read_index, index_gpu_to_cpu
             from faiss import IndexFlatL2
+            import os
 
             # building nearest neighbor structure within inducing points
-            index = IndexFlatL2(self.dim)
-            with torch.no_grad():
-                if self.res is not None:
-                    from faiss import index_cpu_to_gpu
+            if not os.path.isfile('./data/faiss_nn.index'):
+                index = IndexFlatL2(self.dim)
+                with torch.no_grad():
+                    if self.res is not None:
+                        from faiss import index_cpu_to_gpu
 
-                    index = index_cpu_to_gpu(self.res, 0, index)
+                        index = index_cpu_to_gpu(self.res, 0, index)
 
-                for bi in range(self.batch_shape.numel()):
-                    index.reset()
-                    index.add(x_np[bi][: self.k])
-                    for i in range(self.k, N):
-                        row = x_np[bi][i][None, :]
-                        nn_idx[bi][i - self.k].copy_(
-                            torch.from_numpy(index.search(row, self.k)[1][..., 0, :]).long().to(x.device)
-                        )
-                        index.add(row)
+                    for bi in range(self.batch_shape.numel()):
+                        index.reset()
+                        index.add(x_np[bi][: self.k])
+                        for i in range(self.k, N):
+                            row = x_np[bi][i][None, :]
+                            nn_idx[bi][i - self.k].copy_(
+                                torch.from_numpy(index.search(row, self.k)[1][..., 0, :]).long().to(x.device)
+                            )
+                            index.add(row)
+                write_index(index_gpu_to_cpu(index), './data/faiss_nn.index')
+            else:
+                index = read_index('./data/faiss_nn.index')
 
         else:
             assert self.nnlib == "sklearn"
